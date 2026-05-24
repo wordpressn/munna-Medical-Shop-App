@@ -1,0 +1,6 @@
+{
+  "name": "MedStore Pro",
+  "description": "A modern wholesale & retail pharmacy Medical Store Management application.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
