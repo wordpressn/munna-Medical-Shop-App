@@ -245,7 +245,7 @@ fun ShopSetupScreen(viewModel: PharmaViewModel) {
                                     uploadProgress = 0f
                                     while (uploadProgress < 1.0f) {
                                         delay(150)
-                                        uploadProgress = uploadProgress + 0.25f
+                                        uploadProgress = (uploadProgress + 0.25f).coerceAtMost(1.0f)
                                     }
                                     licenseFileName = "TL-$tradeLicenseNumber-ATTACHMENT.pdf"
                                     uploadingFile = null
@@ -264,7 +264,7 @@ fun ShopSetupScreen(viewModel: PharmaViewModel) {
                                     uploadProgress = 0f
                                     while (uploadProgress < 1.0f) {
                                         delay(100)
-                                        uploadProgress = uploadProgress + 0.33f
+                                        uploadProgress = (uploadProgress + 0.33f).coerceAtMost(1.0f)
                                     }
                                     profileFileName = "Av_Owner_${System.currentTimeMillis() % 1000}.png"
                                     uploadingFile = null
@@ -283,7 +283,7 @@ fun ShopSetupScreen(viewModel: PharmaViewModel) {
                                     uploadProgress = 0f
                                     while (uploadProgress < 1.0f) {
                                         delay(100)
-                                        uploadProgress = uploadProgress + 0.2f
+                                        uploadProgress = (uploadProgress + 0.2f).coerceAtMost(1.0f)
                                     }
                                     logoFileName = "Logo_Brand_${System.currentTimeMillis() % 1000}.png"
                                     uploadingFile = null
@@ -347,7 +347,7 @@ fun ShopSetupScreen(viewModel: PharmaViewModel) {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         CircularProgressIndicator(
-                            progress = uploadProgress,
+                            progress = uploadProgress.coerceIn(0f, 1f),
                             color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 4.dp,
                             modifier = Modifier.size(54.dp)
