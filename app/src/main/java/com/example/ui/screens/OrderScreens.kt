@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.platform.testTag
 import com.example.data.*
 import com.example.ui.DashboardTab
 import com.example.ui.PharmaViewModel
@@ -432,7 +434,7 @@ fun AdminOrderRowCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                        text = "৳${String.format(Locale.US, "%.2f", order.totalAmount)}",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary
@@ -473,7 +475,7 @@ fun AdminOrderRowCard(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text("• ${detail.quantity} x ${detail.productName}", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text("$${String.format(Locale.US, "%.2f", detail.price * detail.quantity)}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("৳${String.format(Locale.US, "%.2f", detail.price * detail.quantity)}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -482,8 +484,8 @@ fun AdminOrderRowCard(
                     Divider()
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    if (order.discount > 0) RowDetail("Special Deducted Discount", "-$${order.discount}")
-                    if (order.deliveryCharge > 0) RowDetail("Inbound Delivery Logistics Fee", "$${order.deliveryCharge}")
+                    if (order.discount > 0) RowDetail("Special Deducted Discount", "-৳${order.discount}")
+                    if (order.deliveryCharge > 0) RowDetail("Inbound Delivery Logistics Fee", "৳${order.deliveryCharge}")
                     if (order.notes.isNotEmpty()) RowDetail("Order Note Annotation", order.notes)
 
                     if (isAdmin) {
@@ -548,10 +550,19 @@ fun AdminEditOrderDialog(
                         onValueChange = {},
                         label = { Text("Fulfillment Status") },
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
-                        modifier = Modifier.clickable { expanded = true },
+                        modifier = Modifier.fillMaxWidth(),
                         readOnly = true
                     )
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { expanded = true }
+                    )
+                    DropdownMenu(
+                        expanded = expanded, 
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
                         statusOpts.forEach { opt ->
                             DropdownMenuItem(text = { Text(opt) }, onClick = {
                                 status = opt
@@ -564,14 +575,14 @@ fun AdminEditOrderDialog(
                 OutlinedTextField(
                     value = discount,
                     onValueChange = { discount = it },
-                    label = { Text("Apply Trade Discount ($)") },
+                    label = { Text("Apply Trade Discount (৳)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
                 OutlinedTextField(
                     value = deliveryPrice,
                     onValueChange = { deliveryPrice = it },
-                    label = { Text("Logistics Delivery Charge ($)") },
+                    label = { Text("Logistics Delivery Charge (৳)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
@@ -621,6 +632,8 @@ fun ManualOrderPanel(
     // Form selection
     var productExpanded by remember { mutableStateOf(false) }
     var shopExpanded by remember { mutableStateOf(false) }
+    var showOrderScanner by remember { mutableStateOf(false) }
+    var productSearchQuery by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -638,10 +651,19 @@ fun ManualOrderPanel(
                         onValueChange = {},
                         label = { Text("Enterprise Buyer") },
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
-                        modifier = Modifier.clickable { shopExpanded = true }.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         readOnly = true
                     )
-                    DropdownMenu(expanded = shopExpanded, onDismissRequest = { shopExpanded = false }) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { shopExpanded = true }
+                    )
+                    DropdownMenu(
+                        expanded = shopExpanded, 
+                        onDismissRequest = { shopExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
                         shops.forEachIndexed { index, shop ->
                             DropdownMenuItem(text = { Text(shop.shopName) }, onClick = {
                                 selectedShopIndex = index
@@ -651,20 +673,70 @@ fun ManualOrderPanel(
                     }
                 }
 
-                // 2. Select SKU and quantity to Append
+                // 2. Select SKU with search filtering
+                val filteredProductsForOrder = remember(products, productSearchQuery) {
+                    products.filter { prod ->
+                        productSearchQuery.isEmpty() ||
+                        prod.name.contains(productSearchQuery, ignoreCase = true) ||
+                        prod.skuCode.contains(productSearchQuery, ignoreCase = true) ||
+                        prod.genericName.contains(productSearchQuery, ignoreCase = true)
+                    }
+                }
+
                 Box {
                     OutlinedTextField(
-                        value = "Append Medical SKU Item",
-                        onValueChange = {},
-                        label = { Text("Add Item Block") },
-                        trailingIcon = { Icon(Icons.Default.AddCircleOutline, null) },
-                        modifier = Modifier.clickable { productExpanded = true }.fillMaxWidth(),
-                        readOnly = true
+                        value = productSearchQuery,
+                        onValueChange = { 
+                            productSearchQuery = it
+                            productExpanded = true 
+                        },
+                        label = { Text("Search and Select SKU item *") },
+                        placeholder = { Text("Type name or SKU...") },
+                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { showOrderScanner = true },
+                                    modifier = Modifier.testTag("order_barcode_scan_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCodeScanner,
+                                        contentDescription = "Scan Barcode",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                if (productSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { productSearchQuery = "" }) {
+                                        Icon(Icons.Default.Clear, null)
+                                    }
+                                } else {
+                                    IconButton(onClick = { productExpanded = !productExpanded }) {
+                                        Icon(Icons.Default.ArrowDropDown, null)
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("manual_order_sku_search"),
+                        singleLine = true
                     )
-                    DropdownMenu(expanded = productExpanded, onDismissRequest = { productExpanded = false }) {
-                        products.forEach { prod ->
+                    DropdownMenu(
+                        expanded = productExpanded && filteredProductsForOrder.isNotEmpty(),
+                        onDismissRequest = { productExpanded = false },
+                        properties = PopupProperties(focusable = false), // Let the main text field keep focus for typing!
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 250.dp)
+                    ) {
+                        filteredProductsForOrder.forEach { prod ->
                             DropdownMenuItem(
-                                text = { Text("${prod.name} (Wholesale: $${prod.wholesalePrice} | Stock: ${prod.stockQuantity})") },
+                                text = { 
+                                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                                        Text(prod.name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("SKU: ${prod.skuCode} | Wholesale: ৳${prod.wholesalePrice} | Stock: ${prod.stockQuantity}", fontSize = 11.sp, color = Color.Gray)
+                                    }
+                                },
                                 onClick = {
                                     val matchIdx = transactionProducts.indexOfFirst { it.first.id == prod.id }
                                     if (matchIdx >= 0) {
@@ -673,6 +745,7 @@ fun ManualOrderPanel(
                                     } else {
                                         transactionProducts.add(Pair(prod, 1))
                                     }
+                                    productSearchQuery = ""
                                     productExpanded = false
                                 }
                             )
@@ -722,14 +795,14 @@ fun ManualOrderPanel(
                 OutlinedTextField(
                     value = discount,
                     onValueChange = { discount = it },
-                    label = { Text("Trade Discount Adjustment ($)") },
+                    label = { Text("Trade Discount Adjustment (৳)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
                 OutlinedTextField(
                     value = deliveryFee,
                     onValueChange = { deliveryFee = it },
-                    label = { Text("Logistics Delivery Charge ($)") },
+                    label = { Text("Logistics Delivery Charge (৳)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
@@ -761,4 +834,16 @@ fun ManualOrderPanel(
             TextButton(onClick = onDismiss) { Text("Dismiss") }
         }
     )
+
+    if (showOrderScanner) {
+        BarcodeScannerDialog(
+            availableProducts = products,
+            onScanResult = { barcode ->
+                productSearchQuery = barcode
+                productExpanded = true
+                showOrderScanner = false
+            },
+            onDismiss = { showOrderScanner = false }
+        )
+    }
 }

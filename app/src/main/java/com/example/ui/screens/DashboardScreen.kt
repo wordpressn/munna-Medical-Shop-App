@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -280,7 +281,7 @@ fun ShopOwnerDashboard(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "$${String.format(Locale.US, "%.2f", dueBalance)}",
+                            text = "৳${String.format(Locale.US, "%.2f", dueBalance)}",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -327,7 +328,7 @@ fun ShopOwnerDashboard(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "$${String.format(Locale.US, "%.2f", monthlyPurchase)}",
+                            text = "৳${String.format(Locale.US, "%.2f", monthlyPurchase)}",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
@@ -376,41 +377,18 @@ fun ShopOwnerDashboard(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-                TableRow(label = "Outstanding Balance Due", value = "$${String.format(Locale.US, "%.2f", dueBalance)}", colorVal = MaterialTheme.colorScheme.error)
+                TableRow(label = "Outstanding Balance Due", value = "৳${String.format(Locale.US, "%.2f", dueBalance)}", colorVal = MaterialTheme.colorScheme.error)
                 HorizontalDivider()
-                TableRow(label = "Paid Invoices Volume", value = "$${String.format(Locale.US, "%.2f", paidBillsTotal)}", colorVal = Color.Gray)
+                TableRow(label = "Paid Invoices Volume", value = "৳${String.format(Locale.US, "%.2f", paidBillsTotal)}", colorVal = Color.Gray)
                 HorizontalDivider()
-                TableRow(label = "Last Logged Order Total", value = "$${String.format(Locale.US, "%.2f", lastOrderAmount)}", colorVal = Color.Gray)
+                TableRow(label = "Last Logged Order Total", value = "৳${String.format(Locale.US, "%.2f", lastOrderAmount)}", colorVal = Color.Gray)
                 HorizontalDivider()
                 TableRow(label = "Pending Order requests", value = "${shopOrders.count { it.status == "Pending" }} requisitions", colorVal = Color.Gray)
             }
         }
 
-        // Recent retail orders
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "Recent Distribution Orders",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            TextButton(onClick = { viewModel.setTab(DashboardTab.ORDERS) }) {
-                Text("View All")
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, "All", modifier = Modifier.size(16.dp))
-            }
-        }
-
-        if (shopOrders.isEmpty()) {
-            EmptyStateCard(message = "No distributed orders submitted yet.")
-        } else {
-            shopOrders.take(3).forEach { order ->
-                OrderRowItem(order = order, onClick = { viewModel.setTab(DashboardTab.ORDERS) })
-            }
-        }
+        // Animated Order History & transactions ledger section with status filters & expandable summary
+        OrderHistoryDashboardSection(orders = shopOrders, viewModel = viewModel, isAdmin = false)
     }
 }
 
@@ -501,13 +479,13 @@ fun AdminDashboard(
         ) {
             DashboardMiniCard(
                 title = "Wholesale Sales",
-                value = "$${String.format(Locale.US, "%.0f", totalSalesReceipts)}",
+                value = "৳${String.format(Locale.US, "%.0f", totalSalesReceipts)}",
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
             DashboardMiniCard(
                 title = "Outstanding",
-                value = "$${String.format(Locale.US, "%.0f", totalOutstandingDue)}",
+                value = "৳${String.format(Locale.US, "%.0f", totalOutstandingDue)}",
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.weight(1f)
             )
@@ -639,6 +617,9 @@ fun AdminDashboard(
                 }
             }
         }
+
+        // Animated Order History & transactions ledger section with status filters & expandable summary for Admin
+        OrderHistoryDashboardSection(orders = orders, viewModel = viewModel, isAdmin = true)
 
         // PENDING APPLICANTS TO VERIFY (CORE REQ!)
         Text(
@@ -839,7 +820,7 @@ fun OrderRowItem(order: Order, onClick: () -> Unit) {
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                    text = "৳${String.format(Locale.US, "%.2f", order.totalAmount)}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
@@ -993,6 +974,373 @@ fun EmptyStateCard(message: String) {
                 color = Color.Gray,
                 textAlign = TextAlign.Center
             )
+        }
+    }
+}
+
+@Composable
+fun OrderHistoryDashboardSection(
+    orders: List<Order>,
+    viewModel: PharmaViewModel,
+    isAdmin: Boolean
+) {
+    var selectedFilter by remember { mutableStateOf("All") }
+    var expandedOrderId by remember { mutableStateOf<Long?>(null) }
+
+    val filteredOrders = remember(orders, selectedFilter) {
+        orders.filter { order ->
+            when (selectedFilter) {
+                "Pending" -> order.status == "Pending" || order.status == "Processing"
+                "Completed" -> order.status == "Confirmed" || order.status == "Delivered" || order.status == "Verified"
+                "Cancelled" -> order.status == "Cancelled" || order.status == "Rejected"
+                else -> true
+            }
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Order History & Ledger",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "${filteredOrders.size} Trans.",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = if (isAdmin) "Monitor client requisitions and approval statuses" else "Track your wholesale transactions and payments",
+                fontSize = 11.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val filters = listOf("All", "Pending", "Completed", "Cancelled")
+                filters.forEach { filter ->
+                    val isSelected = selectedFilter == filter
+                    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+
+                    Surface(
+                        selected = isSelected,
+                        onClick = {
+                            selectedFilter = filter
+                            expandedOrderId = null
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = containerColor,
+                        modifier = Modifier
+                            .weight(1f)
+                    ) {
+                        Text(
+                            text = filter,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = contentColor,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (filteredOrders.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.ReceiptLong, "Empty", tint = Color.LightGray, modifier = Modifier.size(36.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "No $selectedFilter transactions found.",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    filteredOrders.take(5).forEach { order ->
+                        val isExpanded = expandedOrderId == order.id
+                        OrderHistoryItemRow(
+                            order = order,
+                            isExpanded = isExpanded,
+                            viewModel = viewModel,
+                            onClick = {
+                                expandedOrderId = if (isExpanded) null else order.id
+                            }
+                        )
+                    }
+
+                    if (filteredOrders.size > 5) {
+                        TextButton(
+                            onClick = { viewModel.setTab(DashboardTab.ORDERS) },
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) {
+                            Text("View All Requisitions", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OrderHistoryItemRow(
+    order: Order,
+    isExpanded: Boolean,
+    viewModel: PharmaViewModel,
+    onClick: () -> Unit
+) {
+    val formattedDate = remember(order.dateMillis) {
+        SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.US).format(Date(order.dateMillis))
+    }
+
+    val orderItems by viewModel.getOrderItems(order.id).collectAsState(initial = emptyList())
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFF8FAFC))
+            .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(12.dp)
+            .animateContentSize()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "ID: #${order.id}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = order.shopName,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(10.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = formattedDate,
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "৳${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val displayStatus = when (order.status) {
+                    "Confirmed", "Delivered", "Verified" -> "Confirmed"
+                    "Cancelled", "Rejected" -> "Cancelled"
+                    else -> "Pending"
+                }
+                StatusChip(status = displayStatus)
+            }
+        }
+
+        if (isExpanded) {
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0xFFE2E8F0))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "TRANSACTION SUMMARY",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF64748B),
+                letterSpacing = 0.5.sp
+            )
+
+            if (orderItems.isEmpty()) {
+                Text(
+                    text = "Reading transaction inventory metadata...",
+                    fontSize = 11.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(vertical = 6.dp)
+                )
+            } else {
+                Spacer(modifier = Modifier.height(4.dp))
+                orderItems.forEach { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "• ${item.productName} (x${item.quantity})",
+                            fontSize = 11.sp,
+                            color = Color(0xFF334155),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "৳${String.format(Locale.US, "%.2f", item.price * item.quantity)}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF334155)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(8.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    if (order.discount > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Special Promo Discount:", fontSize = 10.sp, color = Color.Gray)
+                            Text("-৳${String.format(Locale.US, "%.2f", order.discount)}", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    if (order.deliveryCharge > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Delivery Logistic Fee:", fontSize = 10.sp, color = Color.Gray)
+                            Text("৳${String.format(Locale.US, "%.2f", order.deliveryCharge)}", fontSize = 10.sp, color = Color.DarkGray)
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Gross Bill Total:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                        Text("৳${String.format(Locale.US, "%.2f", order.totalAmount)}", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+
+            if (order.notes.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(
+                        imageVector = Icons.Default.StickyNote2,
+                        contentDescription = "Notes",
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(13.dp).padding(top = 1.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Notes: ${order.notes}",
+                        fontSize = 10.sp,
+                        color = Color(0xFF475569)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.setTab(DashboardTab.INVOICES) },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Receipt, "Invoices", modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Main Invoice", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = { onClick() },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE2E8F0), contentColor = Color(0xFF475569)),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Close Summary", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }

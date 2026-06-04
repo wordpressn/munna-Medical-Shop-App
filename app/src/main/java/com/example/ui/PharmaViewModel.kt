@@ -118,6 +118,10 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
         _currentTab.value = tab
     }
 
+    fun getOrderItems(orderId: Long): Flow<List<OrderItem>> {
+        return repository.getOrderItems(orderId)
+    }
+
     private fun observeCartAndNotifications() {
         viewModelScope.launch {
             _currentUser.collectLatest { user ->
@@ -558,7 +562,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
             repository.insertNotification(
                 Notification(
                     title = "New Distributed Order",
-                    message = "Received an order of $${String.format(Locale.US, "%.2f", grandTotal)} from '${shop.shopName}'.",
+                    message = "Received an order of ৳${String.format(Locale.US, "%.2f", grandTotal)} from '${shop.shopName}'.",
                     isForAdmin = true
                 )
             )
@@ -567,7 +571,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
             repository.insertNotification(
                 Notification(
                     title = "Wholesale Order Confirmed",
-                    message = "Your wholesale bundle request was submitted (Order ID: #$orderId). Totaling $${String.format(Locale.US, "%.2f", grandTotal)}.",
+                    message = "Your wholesale bundle request was submitted (Order ID: #$orderId). Totaling ৳${String.format(Locale.US, "%.2f", grandTotal)}.",
                     targetUserId = user.id
                 )
             )
@@ -634,7 +638,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
             repository.insertNotification(
                 Notification(
                     title = "Manual Order Drafted",
-                    message = "Admin logged an order of $${String.format(Locale.US, "%.2f", total)} on behalf of your franchise.",
+                    message = "Admin logged an order of ৳${String.format(Locale.US, "%.2f", total)} on behalf of your franchise.",
                     targetUserId = targetShopUserId
                 )
             )
@@ -778,7 +782,7 @@ class PharmaViewModel(application: Application) : AndroidViewModel(application) 
         repository.insertNotification(
             Notification(
                 title = "New Invoice Released",
-                message = "Your consolidated Invoice #$invoiceNo has been calculated. Amount: $${String.format(Locale.US, "%.2f", invoiceTotal(dueAmount, vatSimulated))}",
+                message = "Your consolidated Invoice #$invoiceNo has been calculated. Amount: ৳${String.format(Locale.US, "%.2f", invoiceTotal(dueAmount, vatSimulated))}",
                 targetUserId = ord.shopId
             )
         )

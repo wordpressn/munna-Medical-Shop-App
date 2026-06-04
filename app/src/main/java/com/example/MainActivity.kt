@@ -125,6 +125,7 @@ fun DashboardMainShell(viewModel: PharmaViewModel) {
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         bottomBar = {
             NavigationBar(
                 windowInsets = WindowInsets.navigationBars,
